@@ -9,16 +9,20 @@ logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
 
+ppdir = "ppv2"
+
 
 def load_data():
     # Load the survival data
     survival_data = pd.read_csv("data/survival.tsv", sep="\t")
 
     # Load the omics data
-    omics_cnv = pd.read_csv("cnv.clean.tsv", sep="\t", index_col=0)
-    omics_dnameth = pd.read_csv("dnameth.mean.clean.tsv", sep="\t", index_col=0)
-    omics_mrna = pd.read_csv("mrna.clean.tsv", sep="\t", index_col=0)
-    omics_mirna = pd.read_csv("mirna.clean.tsv", sep="\t", index_col=0)
+    omics_cnv = pd.read_csv(f"{ppdir}/cnv.clean.tsv", sep="\t", index_col=0)
+    omics_dnameth = pd.read_csv(
+        f"{ppdir}/dnameth.knnimpute.clean.tsv", sep="\t", index_col=0
+    )
+    omics_mrna = pd.read_csv(f"{ppdir}/mrna.clean.tsv", sep="\t", index_col=0)
+    omics_mirna = pd.read_csv(f"{ppdir}/mirna.clean.tsv", sep="\t", index_col=0)
 
     # Merge the omics data
     # multi_omics_data = pd.concat(
@@ -66,25 +70,26 @@ def run():
     kmf = KaplanMeierFitter()
     plt.figure(figsize=(8, 6))
 
-    for group in final_df['risk_group'].unique():
-        group_data = final_df[final_df['risk_group'] == group]
-        
+    for group in final_df["risk_group"].unique():
+        group_data = final_df[final_df["risk_group"] == group]
+
         # Fit the Kaplan-Meier estimator to the data for this group
-        kmf.fit(group_data['OS.time'], event_observed=group_data['OS'], label=group)
-        
+        kmf.fit(group_data["OS.time"], event_observed=group_data["OS"], label=group)
+
         # Plot the Kaplan-Meier curve
         kmf.plot()
 
     # Customize the plot
-    plt.title('Kaplan-Meier Curve Based on Risk Score from Cox Model')
-    plt.xlabel('Time (OS.time)')
-    plt.ylabel('Survival Probability')
+    plt.title("Kaplan-Meier Curve Based on Risk Score from Cox Model")
+    plt.xlabel("Time (OS.time)")
+    plt.ylabel("Survival Probability")
     plt.legend()
 
     # Save the plot to a file (e.g., as a PNG)
-    plt.savefig('kaplan_meier_curve.png', format='png')  # You can change the file name and format here
+    plt.savefig(
+        "kaplan_meier_curve.png", format="png"
+    )  # You can change the file name and format here
     plt.show()
-
 
 
 run()

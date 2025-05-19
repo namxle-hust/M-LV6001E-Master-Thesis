@@ -28,7 +28,7 @@ wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.mirna.tsv.gz 
 wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.survival.tsv.gz && gunzip -ck TCGA-LUAD.survival.tsv.gz > surival.tsv
 ```
 
-## Run preprocess
+## Run preprocess v1
 
 ```bash
 # No missing values
@@ -43,4 +43,30 @@ python3 preprocess.py --input data/dnameth.tsv --output dnameth.mean.clean.tsv -
 
 # No missing values
 python3 preprocess.py --input data/mirna.tsv --output mirna.clean.tsv --type mirna --num-features 300
+```
+
+## Run preprocess v2
+
+```bash
+outdir=ppv2
+
+mkdir -p ${outdir}
+
+# No missing values
+python3 preprocessv2.py --input data/mrna.tsv --output ${outdir}/mrna.clean.tsv --type mrna --num-features 2000 -s data/sample_ids.txt
+
+# CNV gene level have 2 approaches for fill out missing values
+python3 preprocessv2.py --input data/cnv.tsv --output ${outdir}/cnv.clean.tsv --type cnv --num-features 1500 -s data/sample_ids.txt --fill-missing-method knnimpute
+
+# DNA methylation have 2 approaches for fill out missing values
+python3 preprocessv2.py --input data/dnameth.tsv --output ${outdir}/dnameth.knnimpute.clean.tsv --type dnameth --num-features 500 --fill-missing-method knnimpute -s data/sample_ids.txt
+python3 preprocessv2.py --input data/dnameth.tsv --output ${outdir}/dnameth.mean.clean.tsv --type dnameth --num-features 500 --fill-missing-method mean -s data/sample_ids.txt
+
+# No missing values
+python3 preprocessv2.py --input data/mirna.tsv --output ${outdir}/mirna.clean.tsv --type mirna --num-features 300 -s data/sample_ids.txt
+```
+
+## Run Cox
+```bash
+python3 cox.py
 ```

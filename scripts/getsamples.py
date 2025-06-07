@@ -9,20 +9,22 @@ logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
 
-data_dir = "pp2"
+data_dir = "data"
 
 output_file = "sample_ids.txt"
 
 
 def load_data():
     # Load the survival data
-    survival_data = pd.read_csv("data/survival.tsv", sep="\t")
+    survival_data = pd.read_csv(f"{data_dir}/survival.tsv", sep="\t")
 
     # Load the omics data
-    omics_cnv = pd.read_csv(f"{data_dir}/cnv.clean.tsv", sep="\t", index_col=0)
-    omics_dnameth = pd.read_csv(f"{data_dir}/dnameth.clean.tsv", sep="\t", index_col=0)
-    omics_mrna = pd.read_csv(f"{data_dir}/mrna.clean.tsv", sep="\t", index_col=0)
-    omics_mirna = pd.read_csv(f"{data_dir}/mirna.clean.tsv", sep="\t", index_col=0)
+    omics_cnv = pd.read_csv(f"{data_dir}/cnv.tsv", sep="\t", index_col=0, nrows=1)
+    omics_dnameth = pd.read_csv(
+        f"{data_dir}/dnameth.tsv", sep="\t", index_col=0, nrows=1
+    )
+    omics_mrna = pd.read_csv(f"{data_dir}/mrna.tsv", sep="\t", index_col=0, nrows=1)
+    omics_mirna = pd.read_csv(f"{data_dir}/mirna.tsv", sep="\t", index_col=0, nrows=1)
 
     # Get common columns across all DataFrames
     common_columns = (
@@ -48,8 +50,28 @@ def load_data():
     )
     logger.info(columns_not_in_survival_data)
 
+    logger.info(f"CNV intersects Survival")
+    logger.info(
+        len(set(omics_cnv.columns).intersection(survival_data["sample"].values))
+    )
+
+    logger.info(f"DNA Meth intersects Survival")
+    logger.info(
+        len(set(omics_dnameth.columns).intersection(survival_data["sample"].values))
+    )
+
+    logger.info(f"mRNA intersects Survival")
+    logger.info(
+        len(set(omics_mrna.columns).intersection(survival_data["sample"].values))
+    )
+
+    logger.info(f"miRNA intersects Survival")
+    logger.info(
+        len(set(omics_mirna.columns).intersection(survival_data["sample"].values))
+    )
+
     # Write the IDs to a text file
-    with open(output_file, "w") as file:
+    with open(f"{data_dir}/{output_file}", "w") as file:
         for column in all_common_columns:
             file.write(f"{column}\n")  # Write each column ID on a new line
 

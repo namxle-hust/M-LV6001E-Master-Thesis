@@ -9,7 +9,7 @@ logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
 
-ppdir = "ppv2"
+ppdir = "ppv3"
 
 
 def load_data():

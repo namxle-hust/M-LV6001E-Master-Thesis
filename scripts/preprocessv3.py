@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.distance import pdist, squareform
 from sklearn.impute import KNNImputer
+from sklearn.preprocessing import MinMaxScaler
 from skimage.filters import threshold_otsu
 
 
@@ -23,10 +24,12 @@ def remove_features(df, threshold=20):
     # Calculate % of missing values per row
     missing_percent = df.isna().mean(axis=1) * 100
 
-    # logger.info(f"Missing percentage per row: {missing_percent}")
-
     # Keep rows with missing percentage <= threshold
     cleaned_df = df[missing_percent <= threshold].reset_index(drop=True)
+
+    logger.info(
+        f"Removed {len(df) - len(cleaned_df)} features with >{threshold}% missing values"
+    )
 
     return cleaned_df
 
@@ -44,8 +47,6 @@ def knnimpute(df, k=10, verbose=True):
     # Extract data (all columns except first)
     data = df.iloc[:, 1:].copy()
 
-    # logger.info(df)
-
     # Check for missing values in data
     if verbose:
         total_missing = data.isna().sum().sum()
@@ -56,8 +57,6 @@ def knnimpute(df, k=10, verbose=True):
     # Transpose the data (samples as rows, features as columns)
     data.index = feature_names
     data_transposed = data.T
-
-    # logger.info(data_transposed)
 
     imputer = KNNImputer(n_neighbors=min(k, len(data_transposed) - 1))
     imputed_data = imputer.fit_transform(data_transposed)
@@ -79,10 +78,7 @@ def knnimpute(df, k=10, verbose=True):
     )
 
     # Transpose back to original orientation and convert to result
-    # Simply reset_index and rename to avoid fragmentation warning
     result = imputed_df.T.reset_index().rename(columns={"index": "Features"})
-
-    logger.info(f"knnimpute - Result:\n{result}")
 
     return result
 
@@ -111,35 +107,26 @@ def meanimpute(data):
     return pd.concat([id_column, data_values], axis=1)
 
 
-def select_top_scoring_features(data, num_features=1000):
+def select_top_scoring_features_genewise(data, num_features=1000):
     """
-    Select features based on expression difference of each feature: wi = (mi,1 - mi,0) / (sigmai,1 + sigmai,0)
+    Select features based on Gene-wise weights as mentioned in the CtAE paper.
+    Gene-wise weight = mean * standard deviation for each feature
     """
     # Extract numeric values (skip the first column if it's non-numeric like IDs)
     numeric_data = data.iloc[:, 1:].astype(float)
 
-    threshold = threshold_otsu(numeric_data.values.flatten())
-    logger.info(f"Threshold: {threshold}")
-
-    # Dictionary to hold expression difference values
+    # Calculate gene-wise weights
     row_scores = {}
 
     for idx in numeric_data.index:
         row = numeric_data.loc[idx]
-        high_values = row[row >= threshold]
-        low_values = row[row < threshold]
 
-        # Compute mean and standard deviation for both groups
-        mean_high = high_values.mean()
-        mean_low = low_values.mean()
-        std_high = high_values.std()
-        std_low = low_values.std()
+        # Calculate mean and standard deviation
+        mean_val = row.mean()
+        std_val = row.std()
 
-        # Calculate expression difference score
-        denominator = (
-            std_high + std_low if std_high + std_low != 0 else 1e-6
-        )  # avoid division by zero
-        score = (mean_high - mean_low) / denominator
+        # Gene-wise weight = mean * std (as per paper)
+        score = abs(mean_val * std_val)  # Use absolute value to handle negative means
         row_scores[idx] = score
 
     # Convert to Series and select top rows
@@ -148,7 +135,113 @@ def select_top_scoring_features(data, num_features=1000):
 
     # Return the top rows from the original data
     selected_data = data.loc[top_indices].copy()
+
+    logger.info(f"Selected top {num_features} features using gene-wise weights")
+
     return selected_data
+
+
+def select_top_scoring_features(data, num_features=1000, method="genewise"):
+    """
+    Select features based on specified method.
+    """
+    if method == "genewise":
+        return select_top_scoring_features_genewise(data, num_features)
+    else:
+        # Original Otsu method
+        numeric_data = data.iloc[:, 1:].astype(float)
+        threshold = threshold_otsu(numeric_data.values.flatten())
+        logger.info(f"Otsu threshold: {threshold}")
+
+        row_scores = {}
+
+        for idx in numeric_data.index:
+            row = numeric_data.loc[idx]
+            high_values = row[row >= threshold]
+            low_values = row[row < threshold]
+
+            mean_high = high_values.mean()
+            mean_low = low_values.mean()
+            std_high = high_values.std()
+            std_low = low_values.std()
+
+            denominator = std_high + std_low if std_high + std_low != 0 else 1e-6
+            score = (mean_high - mean_low) / denominator
+            row_scores[idx] = score
+
+        scores_series = pd.Series(row_scores)
+        top_indices = (
+            scores_series.sort_values(ascending=False).head(num_features).index
+        )
+        selected_data = data.loc[top_indices].copy()
+
+        return selected_data
+
+
+def apply_minmax_normalization(df):
+    """
+    Apply min-max normalization to all features as per the paper.
+    """
+    # Get feature names from first column
+    feature_names = df.iloc[:, 0].copy()
+
+    # Extract numeric data
+    numeric_data = df.iloc[:, 1:].astype(float)
+
+    # Apply min-max scaling row-wise (each feature)
+    scaler = MinMaxScaler()
+
+    # Transpose to scale features (rows), then transpose back
+    normalized_data = scaler.fit_transform(numeric_data.T).T
+
+    # Create normalized dataframe
+    normalized_df = pd.DataFrame(
+        normalized_data, index=numeric_data.index, columns=numeric_data.columns
+    )
+
+    # Add feature names back
+    result = pd.concat([feature_names, normalized_df], axis=1)
+
+    logger.info("Applied min-max normalization to all features")
+
+    return result
+
+
+def reorder_features_by_correlation(df):
+    """
+    Reorder features based on Pearson correlation as described in the paper (Equations 6-8).
+    """
+    # Extract numeric data
+    numeric_data = df.iloc[:, 1:].astype(float)
+
+    # Calculate correlation matrix between features (rows)
+    corr_matrix = numeric_data.T.corr()  # Transpose to get feature correlations
+
+    # Calculate cumulative correlation for each feature as per paper
+    p_values = []
+
+    for i in range(len(corr_matrix)):
+        # Get absolute correlations for this feature
+        row_corr = np.abs(corr_matrix.iloc[i].values)
+
+        # Calculate geometric mean of correlations (Equation 6)
+        # Avoid zero by adding small epsilon
+        row_corr[row_corr == 0] = 1e-10
+        p_i = np.prod(row_corr) ** (1.0 / len(row_corr))
+        p_values.append(p_i)
+
+    # Create series with correlation scores
+    p_series = pd.Series(p_values, index=corr_matrix.index)
+
+    # Sort in descending order (Equation 8)
+    sorted_indices = p_series.sort_values(ascending=False).index
+
+    # Reorder the dataframe
+    reordered_df = df.loc[sorted_indices].reset_index(drop=True)
+
+    logger.info("Reordered features based on correlation coefficients")
+
+    return reordered_df
 
 
 def filter_by_sample_ids(df, samples):
@@ -164,7 +257,18 @@ def filter_by_sample_ids(df, samples):
     return filtered_df
 
 
-def run(input, type, num_features, output, fill_missing_method, sample_ids):
+def run(
+    input,
+    type,
+    num_features,
+    output,
+    fill_missing_method,
+    sample_ids,
+    feature_selection_method="genewise",
+    apply_normalization=True,
+    reorder_features=True,
+):
+
     # Load data input file path
     df = pd.read_csv(input, sep="\t")
     logger.info(f"Input shape: {df.shape}")
@@ -186,18 +290,28 @@ def run(input, type, num_features, output, fill_missing_method, sample_ids):
         df = knnimpute(df) if fill_missing_method == "knnimpute" else meanimpute(df)
 
     # Select top scoring features
-    result = select_top_scoring_features(df, num_features=num_features)
+    result = select_top_scoring_features(
+        df, num_features=num_features, method=feature_selection_method
+    )
+
+    # Apply min-max normalization as per paper
+    if apply_normalization:
+        result = apply_minmax_normalization(result)
+
+    # Reorder features based on correlation as per paper
+    if reorder_features:
+        result = reorder_features_by_correlation(result)
 
     # Export result
     result.to_csv(output, sep="\t", index=False)
 
     logger.info(f"Result shape: {result.shape}")
-    logger.info(result.head())
+    logger.info(f"Preprocessing complete!")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="""Preprocess xena browser TCGA data"""
+        description="""Preprocess xena browser TCGA data following CtAE paper"""
     )
     parser.add_argument(
         "-s",
@@ -207,7 +321,7 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument("--input", type=str, help="Input file path", required=True)
-    parser.add_argument("--output", type=str, help="Input file path", required=True)
+    parser.add_argument("--output", type=str, help="Output file path", required=True)
     parser.add_argument(
         "--type",
         type=str,
@@ -229,13 +343,44 @@ if __name__ == "__main__":
         default="knnimpute",
         help="Fill missing method: KNNimpute or Mean",
     )
+    parser.add_argument(
+        "--feature-selection",
+        type=str,
+        choices=["genewise", "otsu"],
+        default="genewise",
+        help="Feature selection method: genewise (as per paper) or otsu",
+    )
+    parser.add_argument(
+        "--no-normalization",
+        action="store_true",
+        help="Skip min-max normalization",
+    )
+    parser.add_argument(
+        "--no-reorder",
+        action="store_true",
+        help="Skip feature reordering by correlation",
+    )
+
     args = parser.parse_args()
     logger.info(f"Arguments: {args}")
+
+    # Default feature counts from paper
+    default_features = {"mrna": 2000, "cnv": 1500, "dnameth": 1000, "mirna": 300}
+
+    # Use paper defaults if not specified
+    num_features = args.num_features
+    if num_features == -1:  # Use -1 as flag for paper defaults
+        num_features = default_features.get(args.type, 1000)
+        logger.info(f"Using paper default: {num_features} features for {args.type}")
+
     run(
         args.input,
         args.type,
-        args.num_features,
+        num_features,
         args.output,
         args.fill_missing_method,
         args.sample_ids,
+        feature_selection_method=args.feature_selection,
+        apply_normalization=not args.no_normalization,
+        reorder_features=not args.no_reorder,
     )

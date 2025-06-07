@@ -2,3 +2,7 @@ lifelines
 pandas
 numpy
 logging
+scikit-learn
+scikit-image
+seaborn
+torch

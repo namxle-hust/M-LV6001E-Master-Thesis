@@ -1,0 +1,5 @@
+V1: No change
+best = 0.575
+
+V2: normalization: standard
+best = 

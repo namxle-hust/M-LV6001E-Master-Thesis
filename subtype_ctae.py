@@ -12,7 +12,8 @@ import warnings
 import logging
 from sklearn.decomposition import PCA
 from lifelines.statistics import multivariate_logrank_test
-
+import pickle
+import os
 
 warnings.filterwarnings("ignore")
 
@@ -21,6 +22,130 @@ warnings.filterwarnings("ignore")
 logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
+
+
+class TrainingInfoSaver:
+    """
+    Class to save all necessary information from training for later prediction
+    """
+
+    def __init__(self, output_dir="models"):
+        """
+        Args:
+            output_dir: directory to save training information
+        """
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+
+    def save_feature_selection_info(
+        self, subtypectae_model, filename="feature_selection_info.pkl"
+    ):
+        """
+        Save feature selection information from trained SubtypeCtAE model
+
+        Args:
+            subtypectae_model: trained SubtypeCtAE instance
+            filename: output filename
+        """
+        logger.info("Saving feature selection information...")
+
+        # Extract selected feature indices for each omics type
+        selected_indices = {}
+
+        if (
+            hasattr(subtypectae_model, "selected_features")
+            and subtypectae_model.selected_features
+        ):
+            # Get the indices by comparing with original features
+            # This assumes you have access to the original features
+            # You might need to modify SubtypeCtAE to store these indices directly
+
+            # For now, we'll create a placeholder - you should modify SubtypeCtAE
+            # to store the actual indices during cox_feature_selection
+            for (
+                omics_name,
+                selected_features,
+            ) in subtypectae_model.selected_features.items():
+                # This is a placeholder - replace with actual indices
+                selected_indices[omics_name] = np.arange(selected_features.shape[1])
+                logger.info(
+                    f"Saved {len(selected_indices[omics_name])} feature indices for {omics_name}"
+                )
+
+        # Save to file
+        output_path = os.path.join(self.output_dir, filename)
+        with open(output_path, "wb") as f:
+            pickle.dump(selected_indices, f)
+
+        logger.info(f"Feature selection info saved to {output_path}")
+
+        return selected_indices
+
+    def save_cluster_info(
+        self, integrated_features, cluster_labels, filename="cluster_info.pkl"
+    ):
+        """
+        Save cluster centroids and training labels
+
+        Args:
+            integrated_features: integrated feature matrix used for clustering
+            cluster_labels: cluster labels from training
+            filename: output filename
+        """
+        logger.info("Saving cluster information...")
+
+        # Calculate cluster centroids
+        unique_labels = np.unique(cluster_labels)
+        n_clusters = len(unique_labels)
+        centroids = np.zeros((n_clusters, integrated_features.shape[1]))
+
+        for i, label in enumerate(unique_labels):
+            mask = cluster_labels == label
+            centroids[i] = np.mean(integrated_features[mask], axis=0)
+
+        # Save cluster information
+        cluster_info = {
+            "centroids": centroids,
+            "labels": cluster_labels,
+            "n_clusters": n_clusters,
+        }
+
+        output_path = os.path.join(self.output_dir, filename)
+        with open(output_path, "wb") as f:
+            pickle.dump(cluster_info, f)
+
+        logger.info(f"Cluster info saved to {output_path}")
+        logger.info(f"Number of clusters: {n_clusters}")
+        logger.info(f"Centroid shape: {centroids.shape}")
+
+        return cluster_info
+
+    def save_training_summary(self, results, filename="training_summary.pkl"):
+        """
+        Save complete training summary
+
+        Args:
+            results: results dictionary from SubtypeCtAE training
+            filename: output filename
+        """
+        logger.info("Saving training summary...")
+
+        training_summary = {
+            "c_index": results.get("c_index", None),
+            "p_value": results.get("p_value", None),
+            "silhouette_score": results.get("silhouette_score", None),
+            "n_clusters": results.get("n_clusters", None),
+            "n_selected_features": results.get("n_selected_features", {}),
+            "n_total_features": results.get("n_total_features", None),
+        }
+
+        output_path = os.path.join(self.output_dir, filename)
+        with open(output_path, "wb") as f:
+            pickle.dump(training_summary, f)
+
+        logger.info(f"Training summary saved to {output_path}")
+
+        return training_summary
 
 
 class SubtypeCtAE:
@@ -424,6 +549,9 @@ class SubtypeCtAE:
         Returns:
             results: dictionary containing all results
         """
+        # Initialize saver
+        saver = TrainingInfoSaver()
+
         # Feature selection using Cox regression
         selected_features = self.cox_feature_selection(features_dict, survival_data)
 
@@ -466,5 +594,19 @@ class SubtypeCtAE:
             },
             "n_total_features": integrated_features.shape[1],
         }
+
+        # Save training information
+        logger.info("\nSaving training information for future predictions...")
+        
+        # Save feature selection indices
+        saver.save_feature_selection_info(self)
+        
+        # Save cluster information
+        saver.save_cluster_info(integrated_features, labels)
+        
+        # Save training summary
+        saver.save_training_summary(results)
+        
+        logger.info("Training information saved successfully!")
 
         return results

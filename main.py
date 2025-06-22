@@ -30,7 +30,7 @@ def load_cae_features_from_files(features_dir="models"):
     omics_types = ["mrna", "cnv", "mirna", "dnameth"]
 
     for omics in omics_types:
-        feature_file = os.path.join(features_dir, f"{omics}.out.ef.npy")
+        feature_file = os.path.join(features_dir, f"{omics}.out_ef.npy")
         if os.path.exists(feature_file):
             features = np.load(feature_file)
             features_dict[omics] = features
@@ -114,12 +114,16 @@ def run_subtypectae_pipeline():
     summaries = []
 
     # Initialize SubtypeCtAE
-    for threshold in (0.01, 0.05, 0.1, 0.15, 0.2):
+    thresholds = (0.01, 0.05, 0.1, 0.15, 0.2)
+    # thresholds = 0.05 # Best result so far
+    for threshold in thresholds:
         logger.info(f"\nRunning with p-value threshold: {threshold}")
 
         model = SubtypeCtAE(p_value_threshold=threshold)
 
         # Run the complete pipeline
+        # n_clusters = 5 is best result
+        # for i in range(5, 6):
         for i in range(2, 6):
             results = model.fit_predict(
                 features_dict,
@@ -150,7 +154,6 @@ def run_subtypectae_pipeline():
                 logger.info(f"Found {results['n_clusters']} cancer subtypes")
                 logger.info(f"C-index: {results['c_index']:.3f}")
                 logger.info(f"Log-rank p-value: {results['p_value']:.2e}")
-
 
     # === 5. SAVE RESULTS ===
     logger.info("\n" + "=" * 50)

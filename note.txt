@@ -1,5 +1,30 @@
-V1: No change
-best = 0.575
 
-V2: normalization: standard
-best = 
+V1:
+- normalization: standard
+- CNV: ascat2
+- mRNA: fpkm-uq
+--> C-index: 0.550165491437617
+
+V2:
+- normalization: standard
+- CNV: absolute
+- mRNA: fpkm-uq
+--> C-index: 0.5777629675845836
+
+V3:
+- normalization: standard
+- CNV: absolute
+- mRNA: tpm
+--> C-index: 0.5818609795524801
+
+V4: 
+- normalization: minmax
+- CNV: absolute
+- mRNA: tpm
+--> C-index: 0.6193244661240463
+
+V5: 
+- normalization: minmax
+- CNV: absolute
+- mRNA: fpkm-uq
+--> C-index: 0.5977992683134341

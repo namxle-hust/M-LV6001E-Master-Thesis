@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pickle
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -19,7 +20,9 @@ logger.setLevel(logging.INFO)
 class OmicsDataset(Dataset):
     """Dataset class for omics data"""
 
-    def __init__(self, data_path, transform=None, normalization="minmax"):
+    def __init__(
+        self, data_path, transform=None, normalization="minmax", scaler_path=None
+    ):
         # Read the TSV file
         self.data = pd.read_csv(data_path, sep="\t", index_col=0)
 
@@ -39,6 +42,11 @@ class OmicsDataset(Dataset):
 
         if self.scaler:
             self.data_array = self.scaler.fit_transform(self.data_array)
+
+        if scaler_path:
+            with open(scaler_path, "wb") as f:
+                pickle.dump(self.scaler, f)
+            print(f"Saved scaler to {scaler_path}")
 
         self.transform = transform
 
@@ -495,7 +503,8 @@ if __name__ == "__main__":
     logger.info(f"Using device: {device}")
 
     # Load data
-    dataset = OmicsDataset(args.input, normalization="minmax")
+    scaler_path = f"{args.output}_scaler.pkl"
+    dataset = OmicsDataset(args.input, normalization="minmax", scaler_path=scaler_path)
 
     logger.info(f"Data shape: {dataset.data_array.shape}")
     logger.info(f"Number of samples: {len(dataset)}")
@@ -574,7 +583,7 @@ if __name__ == "__main__":
     logger.info("\nTraining complete! Features extracted and saved.")
 
     # Save the extracted features
-    np.save(f"{args.output}.ef.npy", features)
+    np.save(f"{args.output}_ef.npy", features)
 
     # Save the trained model
     torch.save(model.state_dict(), f"{args.output}_cae_model.pth")

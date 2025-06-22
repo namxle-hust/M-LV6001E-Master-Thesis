@@ -14,14 +14,22 @@ docker run -itv .:/workspace namxle/python:3.12.10-slim bash
 
 ```bash
 # Multi-omics data
-wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.gene-level_absolute.tsv.gz && gunzip -ck TCGA-LUAD.gene-level_absolute.tsv.gz > cnv.tsv
 
+## CNV
+# wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.gene-level_absolute.tsv.gz
+gunzip -ck TCGA-LUAD.gene-level_absolute.tsv.gz > cnv.tsv
+# gunzip -ck TCGA-LUAD.gene-level_ascat3.tsv.gz > cnv.tsv
+# gunzip -ck TCGA-LUAD.gene-level_ascat2.tsv.gz > cnv.tsv
+
+## DNA methylation
 wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.methylation450.tsv.gz && gunzip -ck TCGA-LUAD.methylation450.tsv.gz > dnameth.tsv
 
+## mRNA
 # Log transformed
 # wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.star_tpm.tsv.gz && gunzip -ck TCGA-LUAD.star_tpm.tsv.gz > mrna.tsv
 wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.star_fpkm-uq.tsv.gz && gunzip -ck TCGA-LUAD.star_fpkm-uq.tsv.gz > mrna.tsv
 
+## miRNA
 # Log transformed
 wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.mirna.tsv.gz && gunzip -ck TCGA-LUAD.mirna.tsv.gz > mirna.tsv
 
@@ -79,6 +87,12 @@ python3 cae_model_v2.py -i ppv6/mirna.clean.tsv -o models/mirna.out
 ```
 
 ## Subtype Model
+
 ```bash
 python3 main.py
+```
+
+## Get test sample
+```bash
+
 ```

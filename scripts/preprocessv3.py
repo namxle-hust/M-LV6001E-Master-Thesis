@@ -290,16 +290,21 @@ def run(
         df = knnimpute(df) if fill_missing_method == "knnimpute" else meanimpute(df)
 
     # Select top scoring features
-    result = select_top_scoring_features(
-        df, num_features=num_features, method=feature_selection_method
-    )
+    if num_features != -1:
+        result = select_top_scoring_features(
+            df, num_features=num_features, method=feature_selection_method
+        )
+    else:
+        result = df
 
     # Apply min-max normalization as per paper
     if apply_normalization:
+        print("Apply min-max normalization to features")
         result = apply_minmax_normalization(result)
 
     # Reorder features based on correlation as per paper
     if reorder_features:
+        print("Reordering features")
         result = reorder_features_by_correlation(result)
 
     # Export result
@@ -365,13 +370,13 @@ if __name__ == "__main__":
     logger.info(f"Arguments: {args}")
 
     # Default feature counts from paper
-    default_features = {"mrna": 2000, "cnv": 1500, "dnameth": 1000, "mirna": 300}
+    # default_features = {"mrna": 2000, "cnv": 1500, "dnameth": 1000, "mirna": 300}
 
     # Use paper defaults if not specified
     num_features = args.num_features
-    if num_features == -1:  # Use -1 as flag for paper defaults
-        num_features = default_features.get(args.type, 1000)
-        logger.info(f"Using paper default: {num_features} features for {args.type}")
+    # if num_features == -1:  # Use -1 as flag for paper defaults
+    #     num_features = default_features.get(args.type, 1000)
+    #     logger.info(f"Using paper default: {num_features} features for {args.type}")
 
     run(
         args.input,

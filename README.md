@@ -26,8 +26,8 @@ wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.methylation45
 
 ## mRNA
 # Log transformed
-# wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.star_tpm.tsv.gz && gunzip -ck TCGA-LUAD.star_tpm.tsv.gz > mrna.tsv
-wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.star_fpkm-uq.tsv.gz && gunzip -ck TCGA-LUAD.star_fpkm-uq.tsv.gz > mrna.tsv
+wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.star_tpm.tsv.gz && gunzip -ck TCGA-LUAD.star_tpm.tsv.gz > mrna.tsv
+# wget https://gdc-hub.s3.us-east-1.amazonaws.com/download/TCGA-LUAD.star_fpkm-uq.tsv.gz && gunzip -ck TCGA-LUAD.star_fpkm-uq.tsv.gz > mrna.tsv
 
 ## miRNA
 # Log transformed
@@ -47,7 +47,7 @@ awk -F"\t" 'FNR==NR{ a[$1] = 1;next}{ if(FNR==1 || a[$1] == 1){ print; } }' data
 ## Run preprocess
 
 ```bash
-outdir=ppv6
+outdir=ppv7
 
 rm -rf ${outdir} && mkdir -p ${outdir}
 
@@ -62,6 +62,26 @@ python3 preprocessv3.py --input data/dnameth.tsv --output ${outdir}/dnameth.clea
 
 # No missing values
 python3 preprocessv3.py --input data/mirna.tsv --output ${outdir}/mirna.clean.tsv --type mirna --num-features 300 --sample-ids data/sample_ids.txt --feature-selection genewise --no-normalization
+```
+
+## Run Preprocess for all features
+
+```bash
+outdir=ppv8
+
+rm -rf ${outdir} && mkdir -p ${outdir}
+
+# No missing values
+python3 preprocessv3.py --input data/mrna.tsv --output ${outdir}/mrna.clean.tsv --type mrna --num-features -1 --sample-ids data/sample_ids.txt --feature-selection genewise --no-normalization
+
+# CNV gene level
+python3 preprocessv3.py --input data/cnv.tsv --output ${outdir}/cnv.clean.tsv --type cnv --num-features -1 --sample-ids data/sample_ids.txt --fill-missing-method knnimpute --feature-selection genewise --no-normalization
+
+# DNA methylation
+python3 preprocessv3.py --input data/dnameth.tsv --output ${outdir}/dnameth.clean.tsv --type dnameth --num-features -1 --fill-missing-method knnimpute --sample-ids data/sample_ids.txt --feature-selection genewise --no-normalization --no-reorder
+
+# No missing values
+python3 preprocessv3.py --input data/mirna.tsv --output ${outdir}/mirna.clean.tsv --type mirna --num-features -1 --sample-ids data/sample_ids.txt --feature-selection genewise --no-normalization --no-reorder
 ```
 
 ## Run Cox
@@ -93,6 +113,7 @@ python3 main.py
 ```
 
 ## Get test sample
+
 ```bash
 
 ```

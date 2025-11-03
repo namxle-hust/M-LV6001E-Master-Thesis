@@ -244,6 +244,12 @@ def reorder_features_by_correlation(df):
     return reordered_df
 
 
+def clean_ensembl_ids(df):
+    """Remove version suffix (everything after dot) from Ensembl gene IDs."""
+    df.iloc[:, 0] = df.iloc[:, 0].str.split('.').str[0]
+    return df
+
+
 def filter_by_sample_ids(df, samples):
     # Get the column names from samples that also exist in df
     sample_cols = [col for col in samples[0].values if col in df.columns]
@@ -272,6 +278,11 @@ def run(
     # Load data input file path
     df = pd.read_csv(input, sep="\t")
     logger.info(f"Input shape: {df.shape}")
+
+    # Clean Ensembl IDs for mRNA and CNV
+    if type in ["mrna", "cnv"]:
+        df = clean_ensembl_ids(df)
+        logger.info("Cleaned Ensembl gene IDs (removed version suffix)")
 
     # Load sample IDs
     samples = pd.read_csv(sample_ids, sep="\t", header=None)

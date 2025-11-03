@@ -67,7 +67,7 @@ python3 preprocessv3.py --input data/mirna.tsv --output ${outdir}/mirna.clean.ts
 ## Run Preprocess for all features
 
 ```bash
-outdir=ppv8
+outdir=ppv9
 
 rm -rf ${outdir} && mkdir -p ${outdir}
 
